@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" type="text/css" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <title></title>
+</head>
+<body>
+    <input type="file" id="image">
+
+    <canvas id="canvas"></canvas>
+
+
+    <input type="button" value="Json出力" id="export" />
+    <a id="download" target="_blank">ダウンロード（IEでは、右クリック＞対象をファイルに保存）</a>
+ 
+    <table id="table" class="table table-striped">
+        <caption>項目をダブルクリックすると編集できます。</caption>
+        <thead>
+            <tr>
+                <th>項目名</th>
+                <th>x</th>
+                <th>y</th>
+                <th>width</th>
+                <th>height</th>
+                <th>削除</th>
+            </tr>
+        <thead>
+        <tbody>
+        </tbody>
+    </table>
+
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jcanvas/21.0.1/min/jcanvas.min.js"></script>
+    <script type="text/javascript" src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    $(function(){
+
+        var mouse_start_x = 0;
+        var mouse_start_y = 0;
+
+        function inputTd(e){
+            id = "item" + $(this).attr("id").replace("text", "");
+            if($(this).val() != ""){
+                $("#" + id).html($(this).val());
+            }else{
+                $("#" + id).html("編集");
+            }
+        }
+
+        function deleteTr(e){
+            $("#trs" + $(this).data("id")).remove();
+        }
+
+        function inputItem(e){
+            id = "text" + $(this).data("id");
+            $(this).html("<input type='text' id='" + id  + "'>");            
+            $("#" + id).on("blur", inputTd);
+        }
+
+        function mouseDown(e) {
+            var rect = e.target.getBoundingClientRect();
+            mouse_start_x = e.clientX - rect.left;
+            mouse_start_y = e.clientY - rect.top;
+
+        }
+
+        function mouseUp(e) {
+            var rect = e.target.getBoundingClientRect();
+            mouse_end_x = e.clientX - rect.left;
+            mouse_end_y = e.clientY - rect.top;
+            
+            width = mouse_end_x - mouse_start_x;
+            height = mouse_end_y - mouse_start_y;
+
+            trs = $(".trs").length;
+
+            html = "<tr id='trs" + $(".trs").length + "' class='trs'>";
+            html += "<td><span id='item" + trs + "' data-id='" + trs + "'>編集</span></td>";
+            html += "<td>" + mouse_start_x + "</td>";
+            html += "<td>" + mouse_start_y + "</td>";
+            html += "<td>" + width + "</td>";
+            html += "<td>" + height + "</td>";
+            html += "<td><input type='button' value='削除' id='delete_button"+ trs + "' data-id='" + trs + "'></td>";
+            html += "</tr>";
+
+            $("tbody").append(html);
+
+            $("#delete_button" + trs).on("click", deleteTr);
+            $("#item" + trs).on("dblclick", inputItem);
+
+        }
+
+
+        // id="ufile"の変化でコールバック
+        $("#image").change(function(){
+            // 選択ファイルの有無をチェック
+            if (!this.files.length) {
+                alert('ファイルが選択されていません');
+                return;
+            }
+
+            // Formからファイルを取得
+            var file = this.files[0];
+
+            // (1) HTMLのCanvas要素の取得
+            var canvas = $("#canvas");
+
+            // (2) getContext()メソッドで描画機能を有効にする
+            var ctx = canvas[0].getContext('2d');
+
+            // 描画イメージインスタンス化
+            var image = new Image();
+
+            // File API FileReader Objectでローカルファイルにアクセス
+            var fr = new FileReader();
+
+            // ファイル読み込み読み込み完了後に実行 [非同期処理]
+            fr.onload = function(evt) {
+
+                // 画像がロードされた後にcanvasに描画を行う [非同期処理]
+                image.onload = function() {
+                    // (3) プレビュー(Cnavas)のサイズを指定
+                    var cnvsH = image.naturalHeight;
+                    var cnvsW = image.naturalWidth;
+                    // (4) Cnavasにサイズアトリビュートを設定する
+                    canvas.attr('width', cnvsW);
+                    canvas.attr('height', cnvsH);
+                    // (5) 描画
+                    ctx.drawImage(image, 0, 0, cnvsW, cnvsH);
+                }
+                // 読み込んだ画像をimageのソースに設定
+                image.src = evt.target.result;
+            }
+
+            // fileを読み込む データはBase64エンコードされる
+            fr.readAsDataURL(file);
+
+            $("#canvas").on("mousedown", mouseDown);
+            $("#canvas").on("mouseup", mouseUp);
+
+        });
+    });
+
+    $("#export").on("click", function() {
+
+        var total = $(".trs").length;
+        var content = "[\r\n";
+        $(".trs").each(function (index){
+            content += "    {\n\n";
+            
+            item = $(this).find("td:eq(0)").find("span").html();
+            if(item == "編集"){
+                item ="";
+            }
+            content += '        "item": "' + item + '",\r\n';
+            content += '        "x": ' + $(this).find("td:eq(1)").html() + ',\r\n';
+            content += '        "y": ' + $(this).find("td:eq(2)").html() + ',\r\n';
+            content += '        "width": ' + $(this).find("td:eq(3)").html() + ',\r\n';
+            content += '        "height": ' + $(this).find("td:eq(4)").html() + ',\r\n';
+            content += "    }";
+
+            if(index != total - 1){
+                content += ",\r\n";
+            }else{
+                content += "\r\n";
+            }
+
+        });
+        content += "]";            
+
+         // 指定されたデータを保持するBlobを作成する。
+        var blob = new Blob([ content ], { "type" : "application/x-msdownload" });
+
+         // Aタグのhref属性にBlobオブジェクトを設定し、リンクを生成
+        window.URL = window.URL || window.webkitURL;
+        $("#download").attr("href", window.URL.createObjectURL(blob));
+        $("#download").attr("download", "data.json");
+    });
+
+    </script>
+</body>
+</html>
